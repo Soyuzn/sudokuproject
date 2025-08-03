@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sudoku</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f1f1f1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 1rem;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(9, 1fr);
+      width: 360px;
+      height: 360px;
+      border: 4px solid #000;
+      gap: 0;
+    }
+    .cell {
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      font-size: 1.2rem;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      outline: none;
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Add thicker borders for 3x3 sections */
+    .cell:nth-child(3n):not(:nth-child(9n)) {
+      border-right: 2px solid #000;
+    }
+    .cell:nth-child(n+19):nth-child(-n+27),
+    .cell:nth-child(n+46):nth-child(-n+54) {
+      border-bottom: 2px solid #000;
+    }
+    
+    .cell:disabled {
+      background: #e0e0e0;
+      font-weight: bold;
+    }
+    .wrong {
+      background: #f88 !important;
+      animation: shake 0.2s ease-in-out 2;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      50% { transform: translateX(3px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+    .section {
+      margin: 1rem 0;
+    }
+    .hearts {
+      font-size: 1.5rem;
+      color: red;
+    }
+    #startMenu, #gameOverMenu {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 2rem;
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    #gameArea {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+    #gameOverMenu {
+      display: none;
+    }
+    button {
+      padding: 0.8rem 1.5rem;
+      margin: 0.5rem;
+      font-size: 1rem;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .power-ups {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .power-ups button {
+      background: #2196F3;
+    }
+    .power-ups button:hover {
+      background: #1976D2;
+    }
+    .power-ups button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .power-ups button:disabled:hover {
+      background: #cccccc;
+    }
+    .difficulty-buttons {
+      display: flex;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .easy { background: #4CAF50; }
+    .medium { background: #FF9800; }
+    .hard { background: #F44336; }
+  </style>
+</head>
+<body>
+  <h1>Sudoku</h1>
+  
+  <!-- Start Menu -->
+  <div id="startMenu">
+    <h2>Pilih Tingkat Kesulitan</h2>
+    <div class="difficulty-buttons">
+      <button class="easy" onclick="startGame('easy')">Mudah</button>
+      <button class="medium" onclick="startGame('medium')">Sedang</button>
+      <button class="hard" onclick="startGame('hard')">Sulit</button>
+    </div>
+  </div>
+
+  <!-- Game Area -->
+  <div id="gameArea">
+    <div class="section">
+      <div id="gameTimer" style="font-size: 1.5rem; font-weight: bold; color: #2196F3; margin-bottom: 1rem;">
+        ⏱️ <span id="timerDisplay">00:00</span>
+      </div>
+    </div>
+    <div class="board" id="sudoku-board"></div>
+    <div class="section">
+      <div class="hearts" id="lives">❤️❤️❤️</div>
+    </div>
+    <div class="power-ups">
+      <button onclick="useRevealAll()">Reveal All</button>
+      <button id="hintBtn" onclick="useShowHint()">Hint (<span id="hintCount">0</span>/<span id="maxHints">0</span>)</button>
+      <button id="healBtn" onclick="useHeal()">Heal (<span id="healCount">0</span>/<span id="maxHeals">0</span>)</button>
+    </div>
+    <div id="revealTimer" style="display: none; font-size: 1.5rem; color: #FF6B6B; font-weight: bold; margin: 1rem 0;">
+      Menampilkan solusi: <span id="countdown">5</span> detik
+    </div>
+    <button onclick="backToMenu()">Kembali ke Menu</button>
+  </div>
+
+  <!-- Game Over Menu -->
+  <div id="gameOverMenu">
+    <h2 id="gameOverTitle">Game Over</h2>
+    <p id="gameOverMessage"></p>
+    <p id="finalTime" style="font-size: 1.2rem; color: #2196F3; font-weight: bold;"></p>
+    <button onclick="restartGame()">Main Lagi</button>
+    <button onclick="backToMenu()">Kembali ke Menu</button>
+  </div>
+
+  <script>
+    const board = document.getElementById('sudoku-board');
+    const livesEl = document.getElementById('lives');
+    const startMenu = document.getElementById('startMenu');
+    const gameArea = document.getElementById('gameArea');
+    const gameOverMenu = document.getElementById('gameOverMenu');
+    const gameOverMessage = document.getElementById('gameOverMessage');
+    
+    let lives = 3;
+    let maxLives = 3;
+    let hintsUsed = 0;
+    let healsUsed = 0;
+    let currentDifficulty = 'easy';
+    let gameWon = false;
+    let isRevealing = false;
+    let revealTimer = null;
+    let gameStartTime = null;
+    let gameTimer = null;
+    let totalGameTime = 0;
+    
+    // Simple sudoku puzzle templates
+    const puzzles = {
+      easy: [
+        [0,0,0,2,6,0,7,0,1],
+        [6,8,0,0,7,0,0,9,0],
+        [1,9,0,0,0,4,5,0,0],
+        [8,2,0,1,0,0,0,4,0],
+        [0,0,4,6,0,2,9,0,0],
+        [0,5,0,0,0,3,0,2,8],
+        [0,0,9,3,0,0,0,7,4],
+        [0,4,0,0,5,0,0,3,6],
+        [7,0,3,0,1,8,0,0,0]
+      ],
+      medium: [
+        [0,0,0,0,0,0,0,1,2],
+        [0,0,0,0,0,0,0,3,4],
+        [0,0,0,0,0,0,0,5,6],
+        [0,0,0,0,0,0,0,7,8],
+        [0,0,0,0,0,0,0,9,1],
+        [0,0,0,0,0,0,0,2,3],
+        [0,0,0,0,0,0,0,4,5],
+        [0,0,0,0,0,0,0,6,7],
+        [0,0,0,0,0,0,0,8,9]
+      ],
+      hard: [
+        [8,0,0,0,0,0,0,0,0],
+        [0,0,3,6,0,0,0,0,0],
+        [0,7,0,0,9,0,2,0,0],
+        [0,5,0,0,0,7,0,0,0],
+        [0,0,0,0,4,5,7,0,0],
+        [0,0,0,1,0,0,0,3,0],
+        [0,0,1,0,0,0,0,6,8],
+        [0,0,8,5,0,0,0,1,0],
+        [0,9,0,0,0,0,4,0,0]
+      ]
+    };
+
+    
+    function startGame(difficulty) {
+      currentDifficulty = difficulty;
+      
+      // Set lives based on difficulty
+      switch(difficulty) {
+        case 'easy':
+          maxLives = 5;
+          lives = 5;
+          break;
+        case 'medium':
+          maxLives = 3;
+          lives = 3;
+          break;
+        case 'hard':
+          maxLives = 1;
+          lives = 1;
+          break;
+      }
+      
+      hintsUsed = 0;
+      healsUsed = 0;
+      gameWon = false;
+      totalGameTime = 0;
+      
+      // Start game timer
+      gameStartTime = Date.now();
+      startGameTimer();
+      
+      updateLives();
+      updatePowerUpButtons();
+      createBoard();
+      loadPuzzle(difficulty);
+      startMenu.style.display = 'none';
+      gameArea.style.display = 'flex';
+      gameOverMenu.style.display = 'none';
+    }
+    
+    function createBoard() {
+      board.innerHTML = '';
+      for (let i = 0; i < 81; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.classList.add('cell');
+        input.dataset.index = i;
+        
+        // Add input validation and wrong answer detection
+        input.addEventListener('input', function(e) {
+          // Prevent input during reveal
+          if (isRevealing) {
+            e.target.value = '';
+            return;
+          }
+          
+          const value = e.target.value;
+          if (!/^[1-9]$/.test(value)) {
+            e.target.value = '';
+            return;
+          }
+          
+          // Check if answer is wrong (simple validation)
+          if (isWrongAnswer(parseInt(e.target.dataset.index), parseInt(value))) {
+            e.target.classList.add('wrong');
+            lives--;
+            updateLives();
+            
+            setTimeout(() => {
+              e.target.classList.remove('wrong');
+              e.target.value = '';
+            }, 500);
+            
+            if (lives <= 0) {
+              gameOver('Nyawa habis! Coba lagi.');
+            }
+          } else {
+            checkWin();
+          }
+        });
+        
+        board.appendChild(input);
+      }
+    }
+    
+    function loadPuzzle(difficulty) {
+      const puzzle = puzzles[difficulty];
+      const cells = document.querySelectorAll('.cell');
+      
+      for (let i = 0; i < 81; i++) {
+        const row = Math.floor(i / 9);
+        const col = i % 9;
+        const value = puzzle[row][col];
+        
+        if (value !== 0) {
+          cells[i].value = value;
+          cells[i].disabled = true;
+        }
+      }
+    }
+    
+    function isWrongAnswer(index, value) {
+      const row = Math.floor(index / 9);
+      const col = index % 9;
+      const cells = document.querySelectorAll('.cell');
+      
+      // Check row
+      for (let c = 0; c < 9; c++) {
+        const cellIndex = row * 9 + c;
+        if (cellIndex !== index && cells[cellIndex].value == value) {
+          return true;
+        }
+      }
+      
+      // Check column
+      for (let r = 0; r < 9; r++) {
+        const cellIndex = r * 9 + col;
+        if (cellIndex !== index && cells[cellIndex].value == value) {
+          return true;
+        }
+      }
+      
+      // Check 3x3 box
+      const boxStartRow = Math.floor(row / 3) * 3;
+      const boxStartCol = Math.floor(col / 3) * 3;
+      
+      for (let r = boxStartRow; r < boxStartRow + 3; r++) {
+        for (let c = boxStartCol; c < boxStartCol + 3; c++) {
+          const cellIndex = r * 9 + c;
+          if (cellIndex !== index && cells[cellIndex].value == value) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }
+    
+    function startGameTimer() {
+      const timerDisplay = document.getElementById('timerDisplay');
+      
+      gameTimer = setInterval(() => {
+        if (!isRevealing) { // Don't count time during reveal
+          const currentTime = Date.now();
+          totalGameTime = Math.floor((currentTime - gameStartTime) / 1000);
+          
+          const minutes = Math.floor(totalGameTime / 60);
+          const seconds = totalGameTime % 60;
+          timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }, 1000);
+    }
+    
+    function stopGameTimer() {
+      if (gameTimer) {
+        clearInterval(gameTimer);
+        gameTimer = null;
+      }
+    }
+    
+    function checkWin() {
+      const cells = document.querySelectorAll('.cell');
+      const filledCells = [...cells].filter(cell => cell.value !== '').length;
+      
+      if (filledCells === 81) {
+        gameWon = true;
+        gameOver('Selamat! Anda menang!');
+      }
+    }
+    
+    function startGameTimer() {
+      const timerDisplay = document.getElementById('timerDisplay');
+      
+      gameTimer = setInterval(() => {
+        if (!isRevealing) { // Don't count time during reveal
+          const currentTime = Date.now();
+          totalGameTime = Math.floor((currentTime - gameStartTime) / 1000);
+          
+          const minutes = Math.floor(totalGameTime / 60);
+          const seconds = totalGameTime % 60;
+          timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }, 1000);
+    }
+    
+    function stopGameTimer() {
+      if (gameTimer) {
+        clearInterval(gameTimer);
+        gameTimer = null;
+      }
+    }
+    
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    function gameOver(message) {
+      stopGameTimer();
+      
+      const gameOverTitle = document.getElementById('gameOverTitle');
+      const gameOverMessage = document.getElementById('gameOverMessage');
+      const finalTime = document.getElementById('finalTime');
+      
+      // Set title based on win/lose
+      if (gameWon) {
+        gameOverTitle.textContent = 'Selamat!';
+        gameOverTitle.style.color = '#4CAF50';
+      } else {
+        gameOverTitle.textContent = 'Game Over';
+        gameOverTitle.style.color = '#F44336';
+      }
+      
+      gameOverMessage.textContent = message;
+      finalTime.textContent = `⏱️ Waktu bermain: ${formatTime(totalGameTime)}`;
+      
+      gameArea.style.display = 'none';
+      gameOverMenu.style.display = 'flex';
+    }
+    
+    function updatePowerUpButtons() {
+      const hintBtn = document.getElementById('hintBtn');
+      const healBtn = document.getElementById('healBtn');
+      const hintCount = document.getElementById('hintCount');
+      const healCount = document.getElementById('healCount');
+      const maxHints = document.getElementById('maxHints');
+      const maxHeals = document.getElementById('maxHeals');
+      
+      hintCount.textContent = hintsUsed;
+      healCount.textContent = healsUsed;
+      maxHints.textContent = maxLives;
+      maxHeals.textContent = maxLives;
+      
+      // Disable buttons if limit reached or during reveal
+      hintBtn.disabled = hintsUsed >= maxLives || isRevealing;
+      healBtn.disabled = healsUsed >= maxLives || lives >= maxLives || isRevealing;
+      
+      // Disable reveal all during reveal
+      const revealAllBtn = document.querySelector('button[onclick="useRevealAll()"]');
+      if (revealAllBtn) {
+        revealAllBtn.disabled = isRevealing;
+      }
+    }
+    
+    function updateLives() {
+      livesEl.innerHTML = '❤️'.repeat(lives);
+      updatePowerUpButtons();
+    }
+    
+
+    
+    function backToMenu() {
+      // Clear all active timers
+      stopGameTimer();
+      if (revealTimer) {
+        clearInterval(revealTimer);
+        revealTimer = null;
+      }
+      isRevealing = false;
+      
+      startMenu.style.display = 'flex';
+      gameArea.style.display = 'none';
+      gameOverMenu.style.display = 'none';
+    }
+    
+    function restartGame() {
+      startGame(currentDifficulty);
+    }
+    
+    function useRevealAll() {
+      if (isRevealing) return;
+
+      isRevealing = true;
+      const cells = document.querySelectorAll('.cell');
+      const puzzle = puzzles[currentDifficulty];
+      const solution = solutions[currentDifficulty];
+      const revealTimerEl = document.getElementById('revealTimer');
+      const countdownEl = document.getElementById('countdown');
+
+      // Fill all empty cells with correct answers from solution
+      for (let i = 0; i < 81; i++) {
+        if (!cells[i].disabled && cells[i].value === '') {
+          const row = Math.floor(i / 9);
+          const col = i % 9;
+          cells[i].value = solution[row][col];
+          cells[i].style.backgroundColor = '#90EE90'; // Light green
+        }
+      }
+
+      // Show timer and start countdown
+      revealTimerEl.style.display = 'block';
+      updatePowerUpButtons();
+
+      let timeLeft = 5;
+      countdownEl.textContent = timeLeft;
+
+      revealTimer = setInterval(() => {
+        timeLeft--;
+        countdownEl.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(revealTimer);
+          revealTimer = null;
+          revealTimerEl.style.display = 'none';
+          isRevealing = false;
+
+          gameStartTime += 5000;
+          gameOver('Anda menggunakan Reveal All! Game berakhir.');
+        }
+      }, 1000);
+    }
+
+    
+    function useShowHint() {
+      if (hintsUsed >= maxLives) return;
+      
+      const cells = [...document.querySelectorAll('.cell')].filter(c => !c.disabled && c.value === '');
+      if (cells.length > 0) {
+        const randomCell = cells[Math.floor(Math.random() * cells.length)];
+        const index = parseInt(randomCell.dataset.index);
+        const row = Math.floor(index / 9);
+        const col = index % 9;
+        const puzzle = puzzles[currentDifficulty];
+        
+        randomCell.value = puzzle[row][col] || Math.floor(Math.random() * 9) + 1;
+        hintsUsed++;
+        updatePowerUpButtons();
+        checkWin();
+      }
+    }
+    
+    function useHeal() {
+      if (healsUsed >= maxLives || lives >= maxLives) return;
+      
+      lives++;
+      healsUsed++;
+      updateLives();
+    }
+  </script>
+</body>
+</html>
