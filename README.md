@@ -39,4 +39,4 @@ Proyek ini dikembangkan dengan bantuan ChatGPT dari OpenAI, yang membantu dalam:
 - Menyusun dokumentasi README.md ini
 - Seluruh kode ditulis dengan pendekatan edukatif, agar mudah dipelajari bagi pemula yang ingin memahami logika Sudoku dan pengembangan web.
 
-🧠 Selamat bermain dan belajar! Semoga proyek ini bisa menjadi sarana latihan logika dan pengembangan web front-end yang menyenangkan.
+🧠 Selamat bermain dan belajar! Semoga proyek ini bisa menjadi sarana latihan logika dan pengembangan web front-end yang menyenangkan!
