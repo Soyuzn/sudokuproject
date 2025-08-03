@@ -199,40 +199,39 @@
     // Simple sudoku puzzle templates
     const puzzles = {
       easy: [
-        [0,0,0,2,6,0,7,0,1],
-        [6,8,0,0,7,0,0,9,0],
-        [1,9,0,0,0,4,5,0,0],
-        [8,2,0,1,0,0,0,4,0],
-        [0,0,4,6,0,2,9,0,0],
-        [0,5,0,0,0,3,0,2,8],
-        [0,0,9,3,0,0,0,7,4],
-        [0,4,0,0,5,0,0,3,6],
-        [7,0,3,0,1,8,0,0,0]
+        [5,3,0,0,7,0,0,0,0],
+        [6,0,0,1,9,5,0,0,0],
+        [0,9,8,0,0,0,0,6,0],
+        [8,0,0,0,6,0,0,0,3],
+        [4,0,0,8,0,3,0,0,1],
+        [7,0,0,0,2,0,0,0,6],
+        [0,6,0,0,0,0,2,8,0],
+        [0,0,0,4,1,9,0,0,5],
+        [0,0,0,0,8,0,0,7,9]
       ],
       medium: [
-        [0,0,3,0,0,0,0,1,2],
+        [0,0,0,6,0,0,4,0,0],
+        [7,0,0,0,0,3,6,0,0],
+        [0,0,0,0,9,1,0,8,0],
         [0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,5,0,0],
-        [0,0,0,0,0,0,0,7,0],
-        [0,0,0,0,0,2,0,0,0],
-        [7,0,0,0,0,0,0,0,3],
-        [0,0,0,0,0,0,0,4,0],
-        [0,0,0,0,2,0,0,0,0],
-        [0,1,0,0,0,0,0,0,9]
+        [0,5,0,1,8,0,0,0,3],
+        [0,0,0,3,0,6,0,4,5],
+        [0,4,0,2,0,0,0,6,0],
+        [9,0,3,0,0,0,0,0,0],
+        [0,2,0,0,0,0,1,0,0]
       ],
       hard: [
-        [8,0,0,0,0,0,0,0,0],
-        [0,0,3,6,0,0,0,0,0],
-        [0,7,0,0,9,0,2,0,0],
-        [0,5,0,0,0,7,0,0,0],
-        [0,0,0,0,4,5,7,0,0],
-        [0,0,0,1,0,0,0,3,0],
-        [0,0,1,0,0,0,0,6,8],
-        [0,0,8,5,0,0,0,1,0],
-        [0,9,0,0,0,0,4,0,0]
+        [0,0,0,0,0,0,6,8,0],
+        [0,0,0,0,4,6,0,0,0],
+        [7,0,0,0,0,0,0,0,9],
+        [0,5,0,0,0,0,0,0,0],
+        [0,0,0,1,0,6,0,0,0],
+        [3,0,0,0,0,8,0,0,0],
+        [0,0,0,0,0,0,0,2,0],
+        [0,0,0,5,2,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0]
       ]
     };
-
     
     function startGame(difficulty) {
       currentDifficulty = difficulty;
@@ -504,47 +503,47 @@
     
     function useRevealAll() {
       if (isRevealing) return;
-
+      
       isRevealing = true;
       const cells = document.querySelectorAll('.cell');
       const puzzle = puzzles[currentDifficulty];
-      const solution = solutions[currentDifficulty];
       const revealTimerEl = document.getElementById('revealTimer');
       const countdownEl = document.getElementById('countdown');
-
-      // Fill all empty cells with correct answers from solution
+      
+      // Fill all empty cells with correct answers
       for (let i = 0; i < 81; i++) {
         if (!cells[i].disabled && cells[i].value === '') {
           const row = Math.floor(i / 9);
           const col = i % 9;
-          cells[i].value = solution[row][col];
-          cells[i].style.backgroundColor = '#90EE90'; // Light green
+          cells[i].value = puzzle[row][col] || Math.floor(Math.random() * 9) + 1;
+          cells[i].style.backgroundColor = '#90EE90'; // Light green for revealed answers
         }
       }
-
+      
       // Show timer and start countdown
       revealTimerEl.style.display = 'block';
       updatePowerUpButtons();
-
+      
       let timeLeft = 5;
       countdownEl.textContent = timeLeft;
-
+      
       revealTimer = setInterval(() => {
         timeLeft--;
         countdownEl.textContent = timeLeft;
-
+        
         if (timeLeft <= 0) {
           clearInterval(revealTimer);
           revealTimer = null;
           revealTimerEl.style.display = 'none';
           isRevealing = false;
-
-          gameStartTime += 5000;
+          
+          // Don't count reveal time in total game time
+          gameStartTime += 5000; // Add back the 5 seconds
+          
           gameOver('Anda menggunakan Reveal All! Game berakhir.');
         }
       }, 1000);
     }
-
     
     function useShowHint() {
       if (hintsUsed >= maxLives) return;
